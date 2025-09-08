@@ -1,17 +1,51 @@
+import { db } from '../db';
+import { sparePartsTable } from '../db/schema';
 import { type UpdateSparePartInput, type SparePart } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const updateSparePart = async (input: UpdateSparePartInput): Promise<SparePart> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing spare part record in the database.
-    // This is typically used to update stock quantities, prices, supplier information, etc.
-    return Promise.resolve({
-        id: input.id,
-        name: input.name || 'Updated Part',
-        description: input.description !== undefined ? input.description : null,
-        part_number: input.part_number || 'PART-001',
-        stock_quantity: input.stock_quantity || 0,
-        unit_price: input.unit_price || 0,
-        supplier: input.supplier !== undefined ? input.supplier : null,
-        created_at: new Date() // Placeholder date
-    } as SparePart);
+  try {
+    // Build update object with only provided fields
+    const updateData: any = {};
+    
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+    }
+    if (input.description !== undefined) {
+      updateData.description = input.description;
+    }
+    if (input.part_number !== undefined) {
+      updateData.part_number = input.part_number;
+    }
+    if (input.stock_quantity !== undefined) {
+      updateData.stock_quantity = input.stock_quantity;
+    }
+    if (input.unit_price !== undefined) {
+      updateData.unit_price = input.unit_price.toString(); // Convert number to string for numeric column
+    }
+    if (input.supplier !== undefined) {
+      updateData.supplier = input.supplier;
+    }
+
+    // Update spare part record
+    const result = await db.update(sparePartsTable)
+      .set(updateData)
+      .where(eq(sparePartsTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Spare part with id ${input.id} not found`);
+    }
+
+    // Convert numeric fields back to numbers before returning
+    const sparePart = result[0];
+    return {
+      ...sparePart,
+      unit_price: parseFloat(sparePart.unit_price) // Convert string back to number
+    };
+  } catch (error) {
+    console.error('Spare part update failed:', error);
+    throw error;
+  }
 };
